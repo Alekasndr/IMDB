@@ -12,7 +12,6 @@ batch_size = 256
 lr = 0.001
 epochs = 8
 grad_clip = 5
-epochs = 8
 print_every = 1
 history = {
     'train_loss': [],
@@ -33,17 +32,10 @@ trainloader = DataLoader(trainset, shuffle=True, batch_size=batch_size)
 valloader = DataLoader(validset, shuffle=True, batch_size=batch_size)
 testloader = DataLoader(testset, shuffle=True, batch_size=batch_size)
 
-# check our batches
-dataiter = iter(trainloader)
-x, y = next(dataiter)
-
 vocab_size = len(word2int)
 
 model = SentimentModel(vocab_size).to(device)
 print(model)
-
-
-
 
 # training config
 lr = 0.001
@@ -64,13 +56,11 @@ es_limit = 5
 # train loop
 model = model.to(device)
 
-epochloop = tqdm(range(epochs), position=0, desc='Training', leave=True)
-
 # early stop trigger
 es_trigger = 0
 val_loss_min = torch.inf
 
-for e in epochloop:
+for e in range(epochs):
 
     #################
     # training mode #
@@ -81,9 +71,12 @@ for e in epochloop:
     train_loss = 0
     train_acc = 0
 
-    for id, (feature, target) in enumerate(trainloader):
+    epochloop = tqdm(range(len(trainloader)), position=0, desc='Training', leave=True)
+    enum = enumerate(trainloader)
+    for i in epochloop:
+        id, (feature, target) = next(enum)
         # add epoch meta info
-        epochloop.set_postfix_str(f'Training batch {id}/{len(trainloader)}')
+        epochloop.set_postfix_str(f'Training batch {id + 1}/{len(trainloader)}')
 
         # move to device
         feature, target = feature.to(device), target.to(device)
@@ -127,9 +120,12 @@ for e in epochloop:
     val_acc = 0
 
     with torch.no_grad():
-        for id, (feature, target) in enumerate(valloader):
+        epochloop = tqdm(range(len(valloader)), position=0, desc='Validating', leave=True)
+        enum = enumerate(valloader)
+        for i in epochloop:
+            id, (feature, target) = next(enum)
             # add epoch meta info
-            epochloop.set_postfix_str(f'Validation batch {id}/{len(valloader)}')
+            epochloop.set_postfix_str(f'Validation batch {id + 1}/{len(valloader)}')
 
             # move to device
             feature, target = feature.to(device), target.to(device)
