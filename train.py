@@ -1,3 +1,4 @@
+import torch.optim
 from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
 from matplotlib import pyplot as plt
@@ -41,8 +42,27 @@ vocab_size = len(word2int)
 model = SentimentModel(vocab_size).to(device)
 print(model)
 
-loss_fn = nn.BCELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
+
+
+# training config
+lr = 0.001
+criterion = nn.BCELoss()  # we use BCELoss cz we have binary classification problem
+optim = torch.optim.Adam(model.parameters(), lr=lr)
+grad_clip = 5
+epochs = 8
+print_every = 1
+history = {
+    'train_loss': [],
+    'train_acc': [],
+    'val_loss': [],
+    'val_acc': [],
+    'epochs': epochs
+}
+es_limit = 5
+
+# train loop
+model = model.to(device)
 
 epochloop = tqdm(range(epochs), position=0, desc='Training', leave=True)
 
@@ -69,13 +89,19 @@ for e in epochloop:
         feature, target = feature.to(device), target.to(device)
 
         # reset optimizer
-        optimizer.zero_grad()
+        optim.zero_grad()
 
         # forward pass
         out = model(feature)
 
+        # acc
+        predicted = torch.tensor([1 if i == True else 0 for i in out > 0.5], device=device)
+        equals = predicted == target
+        acc = torch.mean(equals.type(torch.FloatTensor))
+        train_acc += acc.item()
+
         # loss
-        loss = loss_fn(out.squeeze(), target.float())
+        loss = criterion(out.squeeze(), target.float())
         train_loss += loss.item()
         loss.backward()
 
@@ -83,10 +109,10 @@ for e in epochloop:
         nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
 
         # update optimizer
-        optimizer.step()
+        optim.step()
 
         # free some memory
-        del feature, target
+        del feature, target, predicted
 
     history['train_loss'].append(train_loss / len(trainloader))
     history['train_acc'].append(train_acc / len(trainloader))
@@ -111,13 +137,18 @@ for e in epochloop:
             # forward pass
             out = model(feature)
 
+            # acc
+            predicted = torch.tensor([1 if i == True else 0 for i in out > 0.5], device=device)
+            equals = predicted == target
+            acc = torch.mean(equals.type(torch.FloatTensor))
+            val_acc += acc.item()
 
             # loss
-            loss = loss_fn(out.squeeze(), target.float())
+            loss = criterion(out.squeeze(), target.float())
             val_loss += loss.item()
 
             # free some memory
-            del feature, target
+            del feature, target, predicted
 
         history['val_loss'].append(val_loss / len(valloader))
         history['val_acc'].append(val_acc / len(valloader))
@@ -151,6 +182,12 @@ for e in epochloop:
         history['epochs'] = e + 1
         break
 
+# plot loss
+plt.figure(figsize=(6, 8))
+plt.plot(range(history['epochs']), history['train_acc'], label='Train Acc')
+plt.plot(range(history['epochs']), history['val_acc'], label='Val Acc')
+plt.legend()
+plt.show()
 
 # plot loss
 plt.figure(figsize=(6, 8))
